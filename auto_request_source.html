@@ -1,0 +1,100 @@
+﻿<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+<script src="Template.js" ></script>
+<script>
+    (function () {
+
+        var MarvalSoftware = window.top.MarvalSoftware;
+        var $ = window.top.$;
+
+        MarvalSoftware.Plugins.define("marval-baltic-plugins-auto-request-source",
+            {
+                _pluginPath: null,
+                _pluginId: "marval-baltic-plugins-auto-request-source",
+                _pluginHandlerRequest: null,
+                _msmRequestSourceElementId: null,
+                _pluginSettings: { "defaultSourceId": 0 },
+
+                _getPluginPath: function () {
+                    return this.attributes["data-pluginpath"].value;
+                },
+
+                init: function () {
+                    if (this._getRequestSourceId()>0) return;
+                    this._getPluginSettings(
+                        this,
+                        this._setCallSource
+                    );
+                },
+
+                _getRequestSourceId: function () {
+                    var page = MarvalSoftware.UI.Controls.ScriptManager.getInstance().getControl("__Page");
+                    if (!page || !page._callSource || page._callSource.selectedIndex < 0) return 0;
+                    this._msmRequestSourceElementId = page._callSource.id;
+                    return page._callSource[page._callSource.selectedIndex].value;
+                },
+
+                _getPluginSettings: function (plugin, callback) {
+                    if (this._pluginHandlerRequest) {
+                        this._pluginHandlerRequest.abort();
+                        this._pluginHandlerRequest = null;
+                    }
+                    this._pluginHandlerRequest = $.ajax({
+                        type: "GET",
+                        url: this._getPluginPath() + "handler/BackendHandler.ashx",
+                        contentType: "application/json; charset=utf-8",
+                        dataType: "json",
+                        success: function (result) {
+                            if (result) {
+                                plugin._pluginSettings = result;
+                                callback(plugin);
+                            }
+                        }.bind(this),
+                        error: function (xhr, ajaxOptions, thrownError) {
+                            if (xhr.status > 0) this._showErrorMessage("Plugin Handler Error!\n" + xhr.status + '\n' + thrownError);
+                        }.bind(this)
+                    });
+                },
+
+                _setCallSource: function (plugin) {
+                    if (!plugin._pluginSettings.defaultSourceId || !plugin._isCorrectId(plugin._pluginSettings.defaultSourceId)) return;
+                    plugin._msmSelectElementSetValue(plugin._msmRequestSourceElementId, plugin._pluginSettings.defaultSourceId);
+                },
+
+                _msmSelectElementSetValue: function (elementId, value) {
+                    var elms = $("select#" + elementId);
+                    if (!elms.length) return;
+                    elms[0].value = value;
+                    this._fireEvent(elms[0], "change");
+                },
+
+                _fireEvent: function (element, event) {
+                    if (document.createEventObject) { // IE
+                        var evt = document.createEventObject();
+                        return element.fireEvent('on' + event, evt)
+                    }
+                    else { // Others
+                        var evt = document.createEvent("Events");
+                        evt.initEvent(event, true, true); // event type,bubbling,cancelable
+                        return !element.dispatchEvent(evt);
+                    }
+                },
+
+                _isCorrectId: function (val) {
+                    return (typeof val === 'number' && (val % 1) === 0 && val > 0);
+                },
+
+                _showErrorMessage: function (errorMessage) {
+                    MarvalSoftware.UI.MessageBox.show(
+                        "Plugin Error",
+                        errorMessage + " [" + this._pluginId + "]",
+                        MarvalSoftware.UI.MessageBox.Types.ERROR,
+                        null,
+                        null,
+                        400
+                    );
+                }
+
+            });
+
+    })();
+</script>
